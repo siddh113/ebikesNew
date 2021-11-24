@@ -7,8 +7,12 @@ package ebikes;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.TimerTask;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.Timer;
 
 /** @author Sid
  */
@@ -27,6 +31,15 @@ public class GUI extends javax.swing.JFrame {
         initComponents();
 //        this.comboPopulation.setModel(new DefaultComboBoxModel(populationChoices));
 //        this.comboInitialInfected.setModel(new DefaultComboBoxModel(initialPercChoices));
+
+//        javax.swing.Timer timer1 = new javax.swing.Timer(100, 
+//                new ActionListener(){
+//                    public void actionPerformed(ActionEvent e){
+//                        updateData();
+//                    }
+//                }
+//        );
+//        timer1.start();
     }
     
     public void updateData(){       
@@ -63,7 +76,9 @@ public class GUI extends javax.swing.JFrame {
     }
     
     public void addToLog(String s){
-        this.textLog.append(s+"\n");
+                java.awt.EventQueue.invokeLater(() -> {
+                    textLog.append(s+"\n");
+                });
     }
     
     private void readParameters(){
@@ -512,13 +527,28 @@ public class GUI extends javax.swing.JFrame {
     private void buttonStartActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonStartActionPerformed
         readParameters();
         
+        int interval = 1000;
+        javax.swing.Timer timer = new javax.swing.Timer(interval,
+                new ActionListener(){
+                @Override
+                public void actionPerformed(ActionEvent e){
+                    textTime.setText(getTime());
+                    textThreadCount.setText(java.lang.Thread.activeCount() + "");
+                }
+            });
+       timer.start();
+        
         theRecords = new Records(this);
         theRecords.start();        
         pause(100);
         
+        //textThreadCount.setText(java.lang.Thread.activeCount() + "");
     }//GEN-LAST:event_buttonStartActionPerformed
 
-
+    private String getTime() {
+        LocalDateTime now = LocalDateTime.now();
+        return now.format(DateTimeFormatter.ISO_DATE) + " "+ now.format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+    }
     
     private void buttonReportActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonReportActionPerformed
         updateData();
@@ -527,7 +557,7 @@ public class GUI extends javax.swing.JFrame {
 
     private void buttonStopActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonStopActionPerformed
 
-        theRecords.shutdown();
+        theRecords.stop();
         
     }//GEN-LAST:event_buttonStopActionPerformed
 
