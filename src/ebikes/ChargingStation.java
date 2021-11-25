@@ -3,6 +3,7 @@ package ebikes;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.Vector;
 
 /**
  *
@@ -16,18 +17,18 @@ public class ChargingStation extends Thread {
     int numberChargersFree;
     boolean running;
     
-    LinkedList<Bike> returnedBikes;
-    ArrayList<Bike> chargingBikes;
-    LinkedList<Bike> fullyChargedBikes;
+    private Vector<Bike> returnedBikes;
+    private Vector<Bike> chargingBikes;
+    Vector<Bike> fullyChargedBikes;
     
     int totalChargeIssued;
     private static int interval = 10;    
     
     public ChargingStation(String n, int c, int initial, Records control){
         totalChargeIssued = 0;
-        returnedBikes = new LinkedList();
-        chargingBikes = new ArrayList();
-        fullyChargedBikes = new LinkedList();
+        returnedBikes = new Vector();
+        chargingBikes = new Vector();
+        fullyChargedBikes = new Vector();
         this.stationName = n;
         this.capacity = c;
         this.numberChargersFree = capacity;
@@ -46,9 +47,9 @@ public class ChargingStation extends Thread {
         }
     }
     
-    public void checkForReturnedBikes(){
+    public synchronized void checkForReturnedBikes(){
         if(returnedBikes.size() > 0 && numberChargersFree > 0) {
-                Bike bike = returnedBikes.remove();
+                Bike bike = returnedBikes.remove(0);
                 numberChargersFree--;
                 chargingBikes.add(bike);
                 bike.setStatus(Bike.STATUS.CHARGING);
@@ -60,14 +61,14 @@ public class ChargingStation extends Thread {
         running = false;
     }
     
-    public void addNewBike(Bike bike){
+    public synchronized void addNewBike(Bike bike){
         this.fullyChargedBikes.add(bike);
         control.getBikes().add(bike);
         bike.setStatus(Bike.STATUS.READY);
         bike.start();        
     }
     
-    public void returnBike(Bike bike){
+    public synchronized void returnBike(Bike bike){
         this.returnedBikes.add(bike);
     }
     
@@ -81,7 +82,7 @@ public class ChargingStation extends Thread {
     
     public synchronized Bike releaseBike(){
         while(fullyChargedBikes.size() < 1){pause(1);}
-        return fullyChargedBikes.remove();      
+        return fullyChargedBikes.remove(0);      
     }
     
     public void pause(int ms){
@@ -97,15 +98,15 @@ public class ChargingStation extends Thread {
                 + "," + fullyChargedBikes.size() + "}";
     }
     
-    public LinkedList<Bike> getListOfReturnedBikesAtStation(){
+    public Vector<Bike> getListOfReturnedBikesAtStation(){
         return this.returnedBikes;
     }
     
-    public ArrayList<Bike> getListOfChargingBikesAtStation(){
+    public Vector<Bike> getListOfChargingBikesAtStation(){
         return this.chargingBikes;
     }
     
-    public LinkedList<Bike> getListOfFullyChargedBikesAtStation(){
+    public Vector<Bike> getListOfFullyChargedBikesAtStation(){
         return this.fullyChargedBikes;
     }
     

@@ -7,8 +7,10 @@ package ebikes;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.List;
 import java.util.TimerTask;
 import javax.swing.DefaultComboBoxModel;
@@ -20,6 +22,10 @@ public class GUI extends javax.swing.JFrame {
 
     Records theRecords;
     javax.swing.Timer dataUpdater, chargeUpdater;
+    private Date now = new Date();
+    
+    SimpleDateFormat s = new SimpleDateFormat("HH:mm:ss");
+    SimpleDateFormat s2 = new SimpleDateFormat("HH:mm:ss, dd MMM yyyy");
 
 //    int countMaxThreads;
 //    Integer[] populationChoices = new Integer[]{400,10,20,50,100,200,500,1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000};
@@ -29,17 +35,15 @@ public class GUI extends javax.swing.JFrame {
      */
     public GUI() {
         initComponents();
+        this.theRecords = new Records(this);
+        
+        
+        CurrentTimeTimer.start();
+        updateGui.start();
 //        this.comboPopulation.setModel(new DefaultComboBoxModel(populationChoices));
 //        this.comboInitialInfected.setModel(new DefaultComboBoxModel(initialPercChoices));
 
-//        javax.swing.Timer timer1 = new javax.swing.Timer(100, 
-//                new ActionListener(){
-//                    public void actionPerformed(ActionEvent e){
-//                        updateData();
-//                    }
-//                }
-//        );
-//        timer1.start();
+
     }
     
     public void updateData(){       
@@ -88,7 +92,25 @@ public class GUI extends javax.swing.JFrame {
         ChargingStation.setInterval((int)this.spinnerChargerRun.getValue());
         Journeys.setInterval((int)this.spinnerJourney.getValue());
     }
-
+    //---------------- CURRENT TIME TEXTBOX CODE -----------------
+    javax.swing.Timer CurrentTimeTimer = new javax.swing.Timer(500,
+        new ActionListener() {
+    @Override
+       public void actionPerformed(ActionEvent e) {
+           now = new Date();
+           textTime.setText(s2.format(now));
+        }
+    });
+    
+    //---------------- MAKING THE GUI RESPONSIBLE FOR ITS OWN UPDATE -----------
+    
+    javax.swing.Timer updateGui = new javax.swing.Timer(100, 
+        new ActionListener(){
+            public void actionPerformed(ActionEvent e){
+                updateData();
+            }
+        }
+    );
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -178,6 +200,11 @@ public class GUI extends javax.swing.JFrame {
         jLabel6.setText("Number Bikes");
 
         textNumBikes.setText("0");
+        textNumBikes.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                textNumBikesActionPerformed(evt);
+            }
+        });
 
         jLabel8.setText("Number Users in List/in Map");
 
@@ -526,25 +553,15 @@ public class GUI extends javax.swing.JFrame {
 
     private void buttonStartActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonStartActionPerformed
         readParameters();
-        
+        textThreadCount.setText(java.lang.Thread.activeCount() + "");
         int interval = 1000;
-        javax.swing.Timer timer = new javax.swing.Timer(interval,
-                new ActionListener(){
-                @Override
-                public void actionPerformed(ActionEvent e){
-                    textTime.setText(getTime());
-                    textThreadCount.setText(java.lang.Thread.activeCount() + "");
-                }
-            });
-       timer.start();
-        
         theRecords = new Records(this);
         theRecords.start();        
         pause(100);
         
         //textThreadCount.setText(java.lang.Thread.activeCount() + "");
     }//GEN-LAST:event_buttonStartActionPerformed
-
+  
     private String getTime() {
         LocalDateTime now = LocalDateTime.now();
         return now.format(DateTimeFormatter.ISO_DATE) + " "+ now.format(DateTimeFormatter.ofPattern("HH:mm:ss"));
@@ -557,13 +574,17 @@ public class GUI extends javax.swing.JFrame {
 
     private void buttonStopActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonStopActionPerformed
 
-        theRecords.stop();
+        theRecords.shutdown();
         
     }//GEN-LAST:event_buttonStopActionPerformed
 
     private void buttonUpdateStatisticsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonUpdateStatisticsActionPerformed
         calculateChargeUsed();
     }//GEN-LAST:event_buttonUpdateStatisticsActionPerformed
+
+    private void textNumBikesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_textNumBikesActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_textNumBikesActionPerformed
 
        
     private void pause(long ms){ /* convenience method to keep main code tidier */

@@ -1,5 +1,6 @@
 package ebikes;
 
+
 /**
  *
  * @author Sid
@@ -18,6 +19,7 @@ public class Bike extends Thread {
     
     private static int totalChargeAllBikes = 0;
     private static int timeForTravel = 20, timeForCharge = 20, intervalInRun = 2;
+   
     
     public Bike(String id, ChargingStation s){
         this.id = id;
@@ -42,13 +44,13 @@ public class Bike extends Thread {
         running = false;
     }
     
-    public void startJourney(User user, ChargingStation destination){ /* moves bike from READY to IN_USE */
+    public synchronized void startJourney(User user, ChargingStation destination){ /* moves bike from READY to IN_USE */
         currentUser = user;
         charger = destination; 
         this.status = STATUS.IN_USE;
     }
     
-    public void travel(){ /* moves bike from IN_USE to RETURNED */
+    public synchronized void travel(){ /* moves bike from IN_USE to RETURNED */
         int chargeUsed = (int)(Math.random()*charge);
         pause(timeForTravel);
         charge -= chargeUsed;
@@ -61,7 +63,7 @@ public class Bike extends Thread {
     
     /* charger moves bike from RETURNED TO CHARGING */
 
-    public void charging(){ /* moves bike from CHARGING to READY */
+    public synchronized void charging(){ /* moves bike from CHARGING to READY */
         int chargeUsed = 0;
         pause(timeForCharge);
         while(charge < 100){

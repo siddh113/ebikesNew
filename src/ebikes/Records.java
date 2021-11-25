@@ -8,6 +8,7 @@ package ebikes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Vector;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -18,11 +19,11 @@ import java.util.logging.Logger;
  * @author Sid
  */
 public class Records extends Thread{
-    ArrayList<Bike> bikes;
-    ArrayList<User> users;
-    ArrayList<ChargingStation> chargers;
+    Vector<Bike> bikes;
+    Vector<User> users;
+    Vector<ChargingStation> chargers;
     
-    HashMap<User, ArrayList<Integer>> journeys;
+    HashMap<User, Vector<Integer>> journeys;
     
     Journeys journeyPlanner;
     
@@ -33,9 +34,9 @@ public class Records extends Thread{
     public Records(GUI gui){
         this.gui = gui;
         journeys = new HashMap();
-        chargers = new ArrayList();
-        bikes = new ArrayList();
-        users = new ArrayList();
+        chargers = new Vector();
+        bikes = new Vector();
+        users = new Vector();
         journeyPlanner = new Journeys(this);
         
         testSetUp();     
@@ -52,7 +53,7 @@ public class Records extends Thread{
         
         for(int i = 0; i < 1000; i++){
             users.add(new User());
-            journeys.put(users.get(i), new ArrayList());
+            journeys.put(users.get(i), new Vector());
         }
         System.out.println("There are " + users.size() + " users");
         
@@ -68,10 +69,10 @@ public class Records extends Thread{
         
         running = true;
         
-        while(running){
-            pause(500);
-            gui.updateData();
-        }
+//        while(running){
+//            pause(500);
+//            //gui.updateData(); // Now GUI is responsible for its own updates.
+//        }
     }
     
     public void shutdown(){
@@ -110,9 +111,9 @@ public class Records extends Thread{
             for(Bike b: c.getListOfChargingBikesAtStation()) System.out.println(b);
             for(Bike b: c.getListOfFullyChargedBikesAtStation()) System.out.println(b);
         }
-        for(User u: journeys.keySet()){
-            System.out.println(journeys.get(u));            
-        }
+//        for(User u: journeys.keySet()){
+//            System.out.println(journeys.get(u));            
+//        }
     }
             
     public ChargingStation getRandomCharger(){
@@ -129,15 +130,15 @@ public class Records extends Thread{
         }        
     }
     
-    public ArrayList<Bike> getBikes(){
+    public Vector<Bike> getBikes(){
         return bikes;
     }
     
-    public ArrayList<User> getUsers(){
+    public Vector<User> getUsers(){
         return users;
     }
     
-    public HashMap<User, ArrayList<Integer>> getJourneys(){
+    public HashMap<User, Vector<Integer>> getJourneys(){
         return journeys;
     }
     
@@ -149,7 +150,7 @@ public class Records extends Thread{
         return number;
     }
     
-    public ArrayList<ChargingStation> getListOfChargingStations(){
+    public Vector<ChargingStation> getListOfChargingStations(){
         return chargers;
     }
     
@@ -157,7 +158,7 @@ public class Records extends Thread{
         return chargers.get(spot);
     }
     
-    public int getTotalChargeBikes(){
+    public synchronized int getTotalChargeBikes(){
         int sum = 0;
         for(Bike b: bikes){
             sum += b.getTotalChargeThisBike();
@@ -165,7 +166,7 @@ public class Records extends Thread{
         return sum;
     }
     
-    public int getTotalChargeChargers(){
+    public synchronized int getTotalChargeChargers(){
         int total = 0;
         for(ChargingStation c: chargers){
             total += c.getTotalChargeIssued();
@@ -173,7 +174,7 @@ public class Records extends Thread{
         return total;
     }
     
-    public int getTotalChargeUsers(){
+    public synchronized int getTotalChargeUsers(){
         int total = 0;
         for(User u: users){
             total += u.getTotalChargeUsed();
@@ -181,7 +182,7 @@ public class Records extends Thread{
         return total;
     }
     
-    public int getTotalChargeJourneys(){
+    public synchronized int getTotalChargeJourneys(){
         int total = 0;
         for(User u: journeys.keySet()){
             for(Integer charge: journeys.get(u)){
