@@ -13,19 +13,22 @@ import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.List;
 import java.util.TimerTask;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.Timer;
 
 /** @author Sid
  */
 public class GUI extends javax.swing.JFrame {
-
+    
+    /* Properties of the GUI class */
     Records theRecords;
     javax.swing.Timer dataUpdater, chargeUpdater;
     private Date now = new Date();
     
-    SimpleDateFormat s = new SimpleDateFormat("HH:mm:ss");
     SimpleDateFormat s2 = new SimpleDateFormat("HH:mm:ss, dd MMM yyyy");
+    Executor executor = Executors.newCachedThreadPool();
 
 //    int countMaxThreads;
 //    Integer[] populationChoices = new Integer[]{400,10,20,50,100,200,500,1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000};
@@ -36,14 +39,13 @@ public class GUI extends javax.swing.JFrame {
     public GUI() {
         initComponents();
         this.theRecords = new Records(this);
+        time();                                 // Calling the timer method
+        updategui();                            // Calling the updateGUI method
+        timerChargeUsed();                     // Calling the update statistic method
+
         
-        
-        CurrentTimeTimer.start();
-        updateGui.start();
 //        this.comboPopulation.setModel(new DefaultComboBoxModel(populationChoices));
 //        this.comboInitialInfected.setModel(new DefaultComboBoxModel(initialPercChoices));
-
-
     }
     
     public void updateData(){       
@@ -79,10 +81,11 @@ public class GUI extends javax.swing.JFrame {
         this.textChargeJourneys.setText(""+theRecords.getTotalChargeJourneys());
     }
     
+    //---------------  USING QUEUE TO DISPLAY JOURNEY LOG IN A THREAD SAFE MANNER ---------------------
     public void addToLog(String s){
-                java.awt.EventQueue.invokeLater(() -> {
-                    textLog.append(s+"\n");
-                });
+        java.awt.EventQueue.invokeLater(() -> {
+            textLog.append(s+"\n");
+        });
     }
     
     private void readParameters(){
@@ -92,7 +95,9 @@ public class GUI extends javax.swing.JFrame {
         ChargingStation.setInterval((int)this.spinnerChargerRun.getValue());
         Journeys.setInterval((int)this.spinnerJourney.getValue());
     }
+    
     //---------------- CURRENT TIME TEXTBOX CODE -----------------
+    public void time(){
     javax.swing.Timer CurrentTimeTimer = new javax.swing.Timer(500,
         new ActionListener() {
     @Override
@@ -101,16 +106,31 @@ public class GUI extends javax.swing.JFrame {
            textTime.setText(s2.format(now));
         }
     });
+    CurrentTimeTimer.start();       // String the timer to show the time in the text box.
+}
     
     //---------------- MAKING THE GUI RESPONSIBLE FOR ITS OWN UPDATE -----------
-    
-    javax.swing.Timer updateGui = new javax.swing.Timer(100, 
+    public void updategui(){
+    javax.swing.Timer updateGuiItself = new javax.swing.Timer(100, 
         new ActionListener(){
             public void actionPerformed(ActionEvent e){
                 updateData();
             }
         }
     );
+    updateGuiItself.start();        // Starting the timer to update the gui by itself.
+}
+    //--------------- UPDATING THE STATISTICS EVERY 1 SECOND IN A THREAD SAFE WAY ---------------
+    public void timerChargeUsed(){
+            javax.swing.Timer calcChargeUsed = new javax.swing.Timer(1000, 
+               new ActionListener(){
+            public void actionPerformed(ActionEvent e){
+                calculateChargeUsed();
+            }
+        }
+    );
+    calcChargeUsed.start();         // Starting the timer for update satistics.
+}
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -556,16 +576,10 @@ public class GUI extends javax.swing.JFrame {
         textThreadCount.setText(java.lang.Thread.activeCount() + "");
         int interval = 1000;
         theRecords = new Records(this);
-        theRecords.start();        
+        executor.execute(theRecords);
+        //theRecords.start();        
         pause(100);
-        
-        //textThreadCount.setText(java.lang.Thread.activeCount() + "");
     }//GEN-LAST:event_buttonStartActionPerformed
-  
-    private String getTime() {
-        LocalDateTime now = LocalDateTime.now();
-        return now.format(DateTimeFormatter.ISO_DATE) + " "+ now.format(DateTimeFormatter.ofPattern("HH:mm:ss"));
-    }
     
     private void buttonReportActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonReportActionPerformed
         updateData();

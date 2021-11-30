@@ -1,5 +1,8 @@
 package ebikes;
 
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
+
 
 /**
  *
@@ -7,6 +10,7 @@ package ebikes;
  */
 public class Bike extends Thread {
     
+    /* Properties of the bike class */
     private boolean running;
     private int charge;
     private int totalCharge;
@@ -17,10 +21,12 @@ public class Bike extends Thread {
     private User currentUser;
     private ChargingStation charger;
     
-    private static int totalChargeAllBikes = 0;
+    private static AtomicInteger totalChargeAllBikes = new AtomicInteger(0);
     private static int timeForTravel = 20, timeForCharge = 20, intervalInRun = 2;
-   
     
+    private static ReentrantLock lock;
+   
+    /* Bike constructor */
     public Bike(String id, ChargingStation s){
         this.id = id;
         this.charger = s;
@@ -28,8 +34,10 @@ public class Bike extends Thread {
         this.status = STATUS.READY;
         this.setDaemon(true);
         this.currentUser = null;
+        lock = new ReentrantLock();
     }
     
+    /* Runnable for the class */
     @Override public void run(){
         running = true;
         while(running){
@@ -44,53 +52,71 @@ public class Bike extends Thread {
         running = false;
     }
     
-    public synchronized void startJourney(User user, ChargingStation destination){ /* moves bike from READY to IN_USE */
-        currentUser = user;
-        charger = destination; 
-        this.status = STATUS.IN_USE;
+    /* moves bike from READY to IN_USE */
+    public void startJourney(User user, ChargingStation destination){
+        try{
+            lock.lock();
+            currentUser = user;
+            charger = destination; 
+            this.status = STATUS.IN_USE;
+        }finally{
+            lock.unlock();
+        }       
     }
     
-    public synchronized void travel(){ /* moves bike from IN_USE to RETURNED */
-        int chargeUsed = (int)(Math.random()*charge);
-        pause(timeForTravel);
-        charge -= chargeUsed;
-        currentUser.addToChargeUsed(chargeUsed);
-        charger.getControl().addJourney(currentUser, chargeUsed, charger);
-        charger.returnBike(this);
-        currentUser.returnBike(charger);
-        this.status = STATUS.AWAITING_CHARGE;
-    }
-    
-    /* charger moves bike from RETURNED TO CHARGING */
-
-    public synchronized void charging(){ /* moves bike from CHARGING to READY */
-        int chargeUsed = 0;
-        pause(timeForCharge);
-        while(charge < 100){
-            charge++;
-            chargeUsed++;
-            
+    /* moves bike from IN_USE to RETURNED */
+    public void travel(){ 
+        try{
+            lock.lock();
+            int chargeUsed = (int)(Math.random()*charge);
+            pause(timeForTravel);
+            charge -= chargeUsed;
+            currentUser.addToChargeUsed(chargeUsed);
+            charger.getControl().addJourney(currentUser, chargeUsed, charger);
+            charger.returnBike(this);
+            currentUser.returnBike(charger);
+            this.status = STATUS.AWAITING_CHARGE;
+        }finally{
+            lock.unlock();
         }
-        totalCharge += chargeUsed;
-        totalChargeAllBikes += chargeUsed;
-        this.status = STATUS.READY;
-        charger.addToReadyList(this, chargeUsed);
-        
     }
     
-    public void setStatus(STATUS s){ /* moves car from QUEUEING to PARKING */
+    /* charger moves bike from RETURNED TO CHARGING
+     * moves bike from CHARGING to READY */
+    public void charging(){
+        try{
+            lock.lock();
+            int chargeUsed = 0;
+            pause(timeForCharge);
+            while(charge < 100){
+                charge++;
+                chargeUsed++;         
+            }
+            totalCharge += chargeUsed;
+            totalChargeAllBikes.addAndGet(chargeUsed);
+            this.status = STATUS.READY;
+            charger.addToReadyList(this, chargeUsed);
+        }finally{
+            lock.unlock();
+        }       
+    }
+    
+    /* moves car from QUEUEING to PARKING */
+    public synchronized void setStatus(STATUS s){ 
         this.status = s;
     }
 
+    /* Getters and setters */
+    
     public String getID(){
         return id;
     }
     
-    public int getCharge(){
+    public synchronized int getCharge(){
         return charge;
     }
     
-    public String getStatus(){
+    public synchronized String getStatus(){
         return status.toString();
     }
     
@@ -104,12 +130,12 @@ public class Bike extends Thread {
         return "Bike " + id + ": " + status + " charger="+ charger.getStationName() + " charge=" + charge;
     }
     
-    public int getTotalChargeThisBike(){
+    public synchronized int getTotalChargeThisBike(){
         return totalCharge;
     }
     
     public static int getTotalChargeAllBikes(){
-        return Bike.totalChargeAllBikes;
+        return Bike.totalChargeAllBikes.get();
     }
     
     public static void setIntervals(int msRun, int msTravel, int msCharge){

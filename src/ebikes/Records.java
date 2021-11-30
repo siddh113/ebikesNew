@@ -9,8 +9,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Vector;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -19,25 +21,34 @@ import java.util.logging.Logger;
  * @author Sid
  */
 public class Records extends Thread{
-    Vector<Bike> bikes;
-    Vector<User> users;
-    Vector<ChargingStation> chargers;
     
-    HashMap<User, Vector<Integer>> journeys;
+    /* Collections Stored within the Records object */
+    CopyOnWriteArrayList<Bike> bikes;
+    CopyOnWriteArrayList<User> users;
+    CopyOnWriteArrayList<ChargingStation> chargers;
+    HashMap<User, CopyOnWriteArrayList<Integer>> journeys;
     
+    /* Properties of the Records class */
     Journeys journeyPlanner;
     
     GUI gui;
+    /* Using locks to make the methods thread safe */
+    private static ReentrantLock lock;
+    
+    /* Initializing executor object */
+    Executor executor = Executors.newCachedThreadPool();
     
     boolean running;
     
+    /* Records constructor */
     public Records(GUI gui){
         this.gui = gui;
         journeys = new HashMap();
-        chargers = new Vector();
-        bikes = new Vector();
-        users = new Vector();
+        chargers = new CopyOnWriteArrayList();
+        bikes = new CopyOnWriteArrayList();
+        users = new CopyOnWriteArrayList();
         journeyPlanner = new Journeys(this);
+        lock = new ReentrantLock();
         
         testSetUp();     
     }
@@ -53,28 +64,30 @@ public class Records extends Thread{
         
         for(int i = 0; i < 1000; i++){
             users.add(new User());
-            journeys.put(users.get(i), new Vector());
+            journeys.put(users.get(i), new CopyOnWriteArrayList());
         }
         System.out.println("There are " + users.size() + " users");
         
     }
     
+    /* Runnable for Records class */ 
     @Override public void run(){
         
         for(ChargingStation c: chargers) {
-            c.start();
+            executor.execute(c);
         }
-            
-        journeyPlanner.start();
+        executor.execute(journeyPlanner);
         
-        running = true;
-        
+        //------------ NOW GUI IS RESPONSIBLE FOR ITS OWN UPDATES ------------------------
+        //journeyPlanner.start();
+        //running = true;
 //        while(running){
 //            pause(500);
-//            //gui.updateData(); // Now GUI is responsible for its own updates.
+//            //gui.updateData(); 
 //        }
     }
     
+    /* Method to shutdown every thread */
     public void shutdown(){
         journeyPlanner.shutdown();
         try {
@@ -99,29 +112,38 @@ public class Records extends Thread{
         running = false;       
     }
     
+    /* Method to add journeys made by the user */
     public void addJourney(User user, int chargeUsed, ChargingStation charger){
-        journeys.get(user).add(chargeUsed);
-        gui.addToLog("User " + user.getAccountNumber() + " travelled to " + charger.getStationName() + " using " + chargeUsed + " of charge" );
+        try{
+            lock.lock();
+            journeys.get(user).add(chargeUsed);
+            gui.addToLog("User " + user.getAccountNumber() + " travelled to " + charger.getStationName() + " using " + chargeUsed + " of charge" );
+        } finally{
+            lock.unlock();
+        }
+
     }
     
+    /* Method to get full report of the user and the bikes */
     public void getFullReport(){
-        for(ChargingStation c: chargers){
+        try{
+          for(ChargingStation c: chargers){
             System.out.println(c);
             for(Bike b: c.getListOfReturnedBikesAtStation()) System.out.println(b);
             for(Bike b: c.getListOfChargingBikesAtStation()) System.out.println(b);
             for(Bike b: c.getListOfFullyChargedBikesAtStation()) System.out.println(b);
         }
-//        for(User u: journeys.keySet()){
-//            System.out.println(journeys.get(u));            
-//        }
+        }finally{
+            lock.unlock();
+        }
     }
             
-    public ChargingStation getRandomCharger(){
+    public synchronized ChargingStation getRandomCharger(){
         int number = (int)(Math.random()*chargers.size());
         return chargers.get(number);
     }
     
-    public User getRandomUser(){
+    public synchronized User getRandomUser(){
         while(true){
             //pause(1);
             int number = (int)(Math.random()*users.size());           
@@ -130,27 +152,34 @@ public class Records extends Thread{
         }        
     }
     
-    public Vector<Bike> getBikes(){
+    /* Getters and Setters */
+    
+    public CopyOnWriteArrayList<Bike> getBikes(){
         return bikes;
     }
     
-    public Vector<User> getUsers(){
+    public CopyOnWriteArrayList<User> getUsers(){
         return users;
     }
     
-    public HashMap<User, Vector<Integer>> getJourneys(){
+    public HashMap<User, CopyOnWriteArrayList<Integer>> getJourneys(){
         return journeys;
     }
     
     public int getNumberJourneys(){
-        int number = 0;
-        for(User u: journeys.keySet()){
-            number += journeys.get(u).size();            
+        try{
+            lock.lock();
+            int number = 0;
+            for(User u: journeys.keySet()){
+                number += journeys.get(u).size();            
         }
         return number;
+        }finally{
+            lock.unlock();
+        }
     }
     
-    public Vector<ChargingStation> getListOfChargingStations(){
+    public CopyOnWriteArrayList<ChargingStation> getListOfChargingStations(){
         return chargers;
     }
     
@@ -158,38 +187,62 @@ public class Records extends Thread{
         return chargers.get(spot);
     }
     
-    public synchronized int getTotalChargeBikes(){
-        int sum = 0;
-        for(Bike b: bikes){
-            sum += b.getTotalChargeThisBike();
+    /* Method to get total number of charged bikes */
+    public int getTotalChargeBikes(){
+        try{
+            lock.lock();
+            int sum = 0;
+            for(Bike b: bikes){
+                sum += b.getTotalChargeThisBike();
         }
         return sum;
+        }finally{
+            lock.unlock();
+        }
     }
     
-    public synchronized int getTotalChargeChargers(){
-        int total = 0;
-        for(ChargingStation c: chargers){
-            total += c.getTotalChargeIssued();
+    /* Method to get total chargers required to charge the bikes */
+    public int getTotalChargeChargers(){
+        try{
+            lock.lock();
+            int total = 0;
+            for(ChargingStation c: chargers){
+                total += c.getTotalChargeIssued();
         }
         return total;
+        }finally{
+            lock.unlock();
+        }
     }
     
-    public synchronized int getTotalChargeUsers(){
-        int total = 0;
-        for(User u: users){
-            total += u.getTotalChargeUsed();
+    /* Method to get total number of users who used the chargers to charge thier bikes */
+    public int getTotalChargeUsers(){
+        try{
+            lock.lock();
+            int total = 0;
+            for(User u: users){
+                total += u.getTotalChargeUsed();
         }
         return total;
+        }finally{
+            lock.unlock();
+        }
     }
     
-    public synchronized int getTotalChargeJourneys(){
-        int total = 0;
-        for(User u: journeys.keySet()){
-            for(Integer charge: journeys.get(u)){
-                total += charge;
-            }            
+    /* Method to get total charged used by the journeys that the user made */
+    public int getTotalChargeJourneys(){
+        try{
+            lock.lock();
+            int total = 0;
+            for(User u: journeys.keySet()){
+                for(Integer charge: journeys.get(u)){
+                    total += charge;
+            }       
         }
         return total;
+        }finally{
+            lock.unlock();
+        }
     }
     
     public void pause(int ms){
